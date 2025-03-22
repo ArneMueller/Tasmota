@@ -1,5 +1,5 @@
 /*
-  xsns_128_vk16k.ino - Counter sensors (water meters, electricity meters etc.) sensor support for Tasmota
+  xsns_128_vk16k.ino - Interface to led outputs of 8x8 led driver chips like VK16K33C for Tasmota
 
   Copyright (C) 2025  Arne Reimers
 
@@ -19,7 +19,7 @@
 
 #ifdef USE_VK16K
 /*********************************************************************************************\
- * VK16K led driver interfaced on the led outputs instead of i2c
+ * VK16K33C led driver interfaced on the led outputs instead of i2c
 \*********************************************************************************************/
 
 #define XSNS_128         128
