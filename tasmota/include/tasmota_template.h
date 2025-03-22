@@ -232,6 +232,7 @@ enum UserSelectablePins {
   GPIO_C8_CO2_5K_TX, GPIO_C8_CO2_5K_RX, // C8-CO2-5K CO2 Sensor
   GPIO_V9240_TX, GPIO_V9240_RX,         //  V9240 serial interface
   GPIO_LD2402_TX, GPIO_LD2402_RX,       // HLK-LD2402
+  GPIO_VK16K_GRID, GPIO_VK16K_SEG,
   GPIO_SENSOR_END };
 
 // Error as warning to rethink GPIO usage with max 2045
@@ -510,8 +511,8 @@ const char kSensorNames[] PROGMEM =
   D_SENSOR_TWAI_TX "|" D_SENSOR_TWAI_RX "|" D_SENSOR_TWAI_BO "|" D_SENSOR_TWAI_CLK "|"
   D_SENSOR_C8_CO2_5K_TX "|" D_SENSOR_C8_CO2_5K_RX "|"
   D_SENSOR_V9240_TX "|" D_SENSOR_V9240_RX "|"
-  D_SENSOR_LD2402_TX "|" D_SENSOR_LD2402_RX
-  ;
+  D_SENSOR_LD2402_TX "|" D_SENSOR_LD2402_RX "|"
+  D_SENSOR_VK16K_GRID "|" D_SENSOR_VK16K_SEG;
 
 const char kSensorNamesFixed[] PROGMEM =
   D_SENSOR_USER;
@@ -1267,6 +1268,12 @@ const uint16_t kGpioNiceList[] PROGMEM = {
   AGPIO(GPIO_PIPSOLAR_TX),                       // pipsolar inverter Serial interface
   AGPIO(GPIO_PIPSOLAR_RX),                       // pipsolar inverter Serial interface
 #endif
+
+#ifdef USE_VK16K
+  AGPIO(GPIO_VK16K_GRID) + AGMAX(VK16K_MAX_GRID),
+  AGPIO(GPIO_VK16K_SEG) + AGMAX(VK16K_MAX_SEG),
+#endif
+
 
 /*-------------------------------------------------------------------------------------------*\
  * ESP32 specifics

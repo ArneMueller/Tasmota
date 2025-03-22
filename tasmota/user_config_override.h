@@ -88,7 +88,7 @@ Examples :
 */
 
 
-
+#define USE_VK26K 1
 
 
 #endif  // _USER_CONFIG_OVERRIDE_H_
