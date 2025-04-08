@@ -45,8 +45,8 @@ struct VK16K {
 
 void IRAM_ATTR Vk16kGridRead(void *arg);
 void Vk16kGridRead(void *arg) {
-  uint32_t g = (uint8_t) arg;
-  if (digitalRead(VK16K.grid_pin[g]) != 0) {
+  uint32_t g = (uint32_t) arg;
+  if (digitalRead(Vk16k.grid_pin[g]) != 0) {
     return;
   }
   for (uint32_t s = 0; s < VK16K_MAX_SEG; s++) {
@@ -58,8 +58,8 @@ void Vk16kGridRead(void *arg) {
 
 void IRAM_ATTR Vk16kSegRead(void *arg);
 void Vk16kSegRead(void *arg) {
-  uint32_t s = (uint8_t) arg;
-  if (digitalRead(VK16K.seg_pin[s]) != 1) {
+  uint32_t s = (uint32_t) arg;
+  if (digitalRead(Vk16k.seg_pin[s]) != 1) {
     return;
   }
   for (uint32_t g = 0; g < VK16K_MAX_GRID; g++) {
@@ -74,7 +74,7 @@ void Vk16kSegRead(void *arg) {
 
 void VkInit(void) {
   for (uint8_t g = 0; g < VK16K_MAX_GRID; g++) {
-    if (PinUsed(GPIO_VK16K_GRID, g) {
+    if (PinUsed(GPIO_VK16K_GRID, g)) {
       Vk16k.grid_pin[g] = Pin(GPIO_VK16K_GRID, g);
       // Pull-up on
       pinMode(Vk16k.grid_pin[g], INPUT_PULLUP);
@@ -83,12 +83,13 @@ void VkInit(void) {
     }
   }
   for (uint8_t s = 0; s < VK16K_MAX_SEG; s++) {
-  if (PinUsed(GPIO_VK16K_SEG, s) {
-    Vk16k.seg_pin[s] = Pin(GPIO_VK16K_SEG, s);
-    // Pull-up off
-    pinMode(Vk16k.seg_pin[s], INPUT);
-    attachInterruptArg(Vk16k.seg_pin[s], Vk16kSegRead, (void*)s, RISING);
-    Vk16k.detected = true;
+    if (PinUsed(GPIO_VK16K_SEG, s)) {
+      Vk16k.seg_pin[s] = Pin(GPIO_VK16K_SEG, s);
+      // Pull-up off
+      pinMode(Vk16k.seg_pin[s], INPUT);
+      attachInterruptArg(Vk16k.seg_pin[s], Vk16kSegRead, (void*)s, RISING);
+      Vk16k.detected = true;
+    }
   }
 }
 
@@ -99,13 +100,14 @@ void VkInterruptDisable(void) {
     }
   }
   for (uint8_t s = 0; s < VK16K_MAX_SEG; s++) {
-  if (Vk16k.seg_pin[s] >= 0) {
-    detachInterruptArg(Vk16k.seg_pin[s]);
+    if (Vk16k.seg_pin[s] >= 0) {
+      detachInterrupt(Vk16k.seg_pin[s]);
+    }
   }
 }
 
 void VkLoop(void) {
-  for (uint32_t g = 0; g < VK16K_MAX_GRID; i++) {
+  for (uint32_t g = 0; g < VK16K_MAX_GRID; g++) {
     if(Vk16k.grid_pin[g] >= 0) {
       Vk16k.grid[g] = Vk16k.tmp_grid[g];
       Vk16k.tmp_grid[g] = 0;
@@ -115,7 +117,7 @@ void VkLoop(void) {
 
 void VkJson(void) {
   ResponseAppend_P(PSTR(",\"Vk16k\":{"));
-  for(uint32_t g = 0; g < VK16K_MAX_GRID; i++) {
+  for(uint32_t g = 0; g < VK16K_MAX_GRID; g++) {
     if(Vk16k.grid_pin[g] >= 0) {
       ResponseAppend_P(PSTR("%s\"%i\":%i"),
           g==0?"":",",
@@ -131,7 +133,7 @@ void VkJson(void) {
 const char HTTP_VK16K_GRID[] PROGMEM = "{s}grid%i{m}%8_b{e}";
 void VkWeb(void) {
   WSContentSend_P(HTTP_SNS_HR_THIN);
-  for(uint32_t g = 0; g < VK16K_MAX_GRID; i++) {
+  for(uint32_t g = 0; g < VK16K_MAX_GRID; g++) {
     if(Vk16k.grid_pin[g] >= 0) {
       WSContentSend_P(HTTP_VK16K_GRID,g,
           Vk16k.grid[g]);
@@ -161,7 +163,7 @@ bool Xsns128(uint32_t function) {
         break;
 #ifdef USE_WEBSERVER
       case FUNC_WEB_SENSOR:
-        VkShow();
+        VkWeb();
         break;
 #endif  // USE_WEBSERVER
      case FUNC_INTERRUPT_STOP:

@@ -541,6 +541,8 @@ const char kSensorNamesFixed[] PROGMEM =
 #define MAX_CSE7761              2  // Model 1/2 (DUALR3), 2/2 (POWCT)
 #define MAX_TWAI                 SOC_TWAI_CONTROLLER_NUM
 #define MAX_GPS_RX               3  // Baudrates 1 (9600), 2 (19200), 3 (38400)
+#define VK16K_MAX_GRID           3
+#define VK16K_MAX_SEG            4
 
 const uint16_t kGpioNiceList[] PROGMEM = {
   GPIO_NONE,                                     // Not used

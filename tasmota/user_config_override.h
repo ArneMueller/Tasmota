@@ -88,7 +88,11 @@ Examples :
 */
 
 
-#define USE_VK26K 1
-
+#define USE_VK16K 1
+#undef USE_SONOFF_RF
+#undef USE_LIGHT
+#undef USE_SHELLY_DIMMER
+#undef USE_UFILESYS
+#undef USE_FTP
 
 #endif  // _USER_CONFIG_OVERRIDE_H_
