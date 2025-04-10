@@ -47,10 +47,10 @@ extern "C" int startWaveformClockCycles(uint8_t pin, uint32_t highCcys, uint32_t
   uint32_t runTimeCcys, int8_t alignPhase, uint32_t phaseOffsetCcys, bool autoPwm);
 extern "C" void setTimer1Callback(uint32_t (*fn)());
 #ifdef USE_SERIAL_BRIDGE
-void SerialBridgePrint(char *data);
+void SerialBridgeWrite(char *line, uint32_t len);
 #endif
 #ifdef USE_TELNET
-void TelnetPrint(char *data);
+void TelnetWrite(char *line, uint32_t len);
 #endif  // USE_TELNET
 #ifdef USE_INFLUXDB
 void InfluxDbProcess(bool use_copy = false);

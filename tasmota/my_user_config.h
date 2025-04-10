@@ -486,7 +486,14 @@
   #define USE_KNX_WEB_MENU                       // Enable KNX WEB MENU (+8.3k code, +144 mem)
 
 // -- Telnet --------------------------------------
-//#define USE_TELNET                               // Add support for telnet (+1k3 code)
+//#define USE_TELNET                               // Add support for telnet (+2k code)
+//  #define TELNET_BUF_SIZE        256             // [TelnetBuffer] Size of input buffer (default 256)
+//  #define TELNET_START           1               // [Telnet] Start telnet on network connection (default 0 - No start)
+//  #define TELNET_PORT            23              // [Telnet] Telnet port (default 23)
+//  #define TELNET_COL_DISABLE     1               // [TelnetColor] Disable colors (default 0 - Enable colors)
+//  #define TELNET_COL_PROMPT      33              // [TelnetColor] ANSI color escape code (default 33 - Yellow)
+//  #define TELNET_COL_RESPONSE    32              // [TelnetColor] ANSI color escape code (default 32 - Green)
+//  #define TELNET_COL_LOGGING     36              // [TelnetColor] ANSI color escape code (default 36 - Cyan)
 
 // -- HTTP ----------------------------------------
 #define USE_WEBSERVER                            // Enable web server and Wi-Fi Manager (+66k code, +8k mem)
@@ -494,6 +501,7 @@
   #define WEB_USERNAME         "admin"           // Web server Admin mode user name
 //  #define DISABLE_REFERER_CHK                     // [SetOption128] Disable HTTP API
   #define USE_ENHANCED_GUI_WIFI_SCAN             // Enable Wi-Fi scan output with BSSID (+0k5 code)
+//  #define USE_ALPINEJS                           // Enable AlpineJS v2.8.2 (+8k8 code)
 //  #define USE_WEBSEND_RESPONSE                   // Enable command WebSend response message (+1k code)
 //  #define USE_WEBGETCONFIG                       // Enable restoring config from external webserver (+0k6)
 //  #define USE_WEBRUN                             // Enable executing a tasmota command file from external web server (+0.4 code)

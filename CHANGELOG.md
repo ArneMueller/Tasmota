@@ -3,7 +3,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Development
 
-## [14.5.0.2] 
+## [14.5.0.3] 
+### Added
+- Extend command `GPIO` with different display options and allowing updating of module GPIO's in one go
+- Berry `bytes.add()` now accepts 3-bytes values (#23200)
+- Berry expose `esp_http_server` for websockets (#23206)
+- AlpineJS 2.8.2 - optional for now (#23259)
+
+### Breaking Changed
+
+### Changed
+- Output of commands `GPIO` and `GPIOs` swapped
+- Smoothen light gamma curve when using `Fade` (#23230)
+
+### Fixed
+- INA226 driver fixes (#23197)
+- TLS increase timeout and fix crash (#23249)
+
+### Removed
+
+
+
+## [14.5.0.2] 20250325
 ### Added
 - Berry load `.tapp` files in `/.extensions/` then in `/` (#23113)
 - Support Vango Technologies V924x ultralow power, single-phase, power measurement (#23127)
@@ -11,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Matter prepare for ICD cluster (#23158)
 - Berry `re.dump()` (#23162)
 - Telnet server using command `Telnet <0|1|port>[,<IP filter>]`
+- HASPmota autostart when `pages.jsonl` exists (#23181)
 
 ### Breaking Changed
 - Berry remove `Leds.create_matrix` from the standard library waiting for reimplementation (#23114)
@@ -28,9 +50,6 @@ All notable changes to this project will be documented in this file.
 - ESP32-C3 WiFi sleep (#23096)
 - ESP32 intermittent exception on WiFi AP cannot be reached (#23115)
 - ESP32 receive incomplete serial data over 128 bytes (#23156)
-
-### Removed
-
 
 ## [14.5.0.1] 20250302
 ### Added

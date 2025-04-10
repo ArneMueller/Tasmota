@@ -23,7 +23,6 @@
 */
 
 #ifdef USE_LD2402
-
 /*********************************************************************************************\
  * HLK-LD2402 24GHz smart wave motion sensor
  * 
@@ -37,6 +36,7 @@
  * LD2402_SetMotion n,n1..n16 - set motion threshold values (16)
  * LD2402_SetMicro n,n1..n16 - set micro threshold values (16)
  * LD2402_Mode 0/1 - set device output mode 0-normal, 1-engineering
+ * LD2402_Save - save the internal device motion/micro thresholds
  * LD2402_AutoUpdate 3.0,2.0,3.0 - start autoupdate trigger,keep,micro magnification factor
  * LD2402_Follow 0/n - reports every n seconds
  *
@@ -236,101 +236,81 @@ void Ld2402HandleConfigData(void) {
 
 void Ld2402Input(void) {
   uint32_t avail;
-  while (LD2402Serial->available()) {
+  while ((avail = LD2402Serial->available()) && avail) {
+    static uint32_t byte_counter = 0;
     static uint32_union header;
-    static uint32_union footer;
-    static uint32_t data_type = 0, byte_counter = 0;
-    if (!data_type) {
-      if (!byte_counter) {
-        avail = LD2402Serial->available();
-        if (avail < 4) {
-          DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Don't have enough for header."));
-          break;
-        }
-        for (uint32_t i = 3; i; i--) {
-          header.buffer_32<<=8;
-          header.buffer[LD2402.is_big*3] = LD2402Serial->read();
-        }
-        byte_counter = 4;
+    uint32_t data_type;
+    if (0 == byte_counter) {
+      while (LD2402Serial->available() < 4) {
+        yield();
       }
-  
-      avail = LD2402Serial->available();
-      header.buffer_32<<=8;
-      header.buffer[LD2402.is_big*3] = LD2402Serial->read();
-
-      // I will get out of this mess with either:
-      //  - Config/Engineering header match, set data_type (most likely/quickest further processing)
-      //  - Known text match, process line, clear byte count for next line (less likely but no further processing)
-      //  - No header matches, continue, shift in the next character if/when available
-      data_type = (LD2402_engineering_header == header.buffer_32) ? 2 : 0;
-      if (!data_type) {
-        data_type = (LD2402_config_header == header.buffer_32) ? 3 : 0;
-        if (!data_type) {
-          if (LD2402_target_Error != header.buffer_32) {
-            if (LD2402_target_OFF != header.buffer_32) {
-              if (LD2402_target_distance != header.buffer_32) {
-                continue;
-              } else {
-                // process distance line
-                byte_counter = LD2402Serial->readBytesUntil(0x0A, LD2402.buffer, LD2402_BUFFER_SIZE);
-                LD2402.buffer[byte_counter] = 0;
-                DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Dist%s"), LD2402.buffer);
-                // ance:105\r\n
-                LD2402.detect_distance = atoi((char*) LD2402.buffer + 5);
-                LD2402.person = 2;
-              }
-            } else {
-              // process OFF line
-              LD2402.detect_distance = 0;
-              LD2402.person = 0;
-              LD2402Serial->read();
-            }
-            LD2402.report_type = 2;
-          } else {
-            // preocess Error line
-            byte_counter = LD2402Serial->readBytesUntil(0x0A, LD2402.buffer, LD2402_BUFFER_SIZE);
-            LD2402.buffer[byte_counter] = 0;
-            AddLog(LOG_LEVEL_INFO, PSTR(D_LD2402_LOG_PREFIX "Erro%s"), LD2402.buffer);
-            LD2402.report_type = 0;
-          }
-          byte_counter = 0;
-          break;
-        }
+      for (uint32_t i = 3; i; i--) {
+        header.buffer_32<<=8;
+        header.buffer[LD2402.is_big*3] = LD2402Serial->read();
       }
     }
+    header.buffer_32<<=8;
+    header.buffer[LD2402.is_big*3] = LD2402Serial->read();
+    byte_counter = 4;
 
-    static uint32_t length, got;
-    if (byte_counter < 6) {
-      avail = LD2402Serial->available();
-      if (avail < 2) {
-        DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Don't have enough for length."));
-        break;
-      }
-      length = LD2402Serial->read();
-      LD2402Serial->read();
-      got = 0;
-      if (length > LD2402_BUFFER_SIZE) {
-        data_type = 0;
+    // I will get out of this mess with either:
+    //  - Config/Engineering header match, set data_type (most likely/quickest further processing)
+    //  - Known text match, process line, clear byte count for next line (less likely but no further processing)
+    //  - No header matches, continue, shift in the next character if/when available
+    data_type = (LD2402_engineering_header == header.buffer_32) * 2;
+    if (!data_type) {
+      data_type = (LD2402_config_header == header.buffer_32) * 3;
+      if (!data_type) {
+        if (LD2402_target_Error != header.buffer_32) {
+          if (LD2402_target_OFF != header.buffer_32) {
+            if (LD2402_target_distance != header.buffer_32) {
+              if (LD2402_engineering_footer != header.buffer_32) {
+                continue;
+              }
+              DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Found engineering footer but have no header!"));
+            } else {
+              // process distance line
+              byte_counter = LD2402Serial->readBytesUntil(0x0A, LD2402.buffer, LD2402_BUFFER_SIZE);
+              LD2402.buffer[byte_counter] = 0;
+              DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Dist%s"), LD2402.buffer);
+              // ance:105\r\n
+              LD2402.detect_distance = atoi((char*) LD2402.buffer + 5);
+              LD2402.person = 2;
+            }
+          } else {
+            // process OFF line
+            LD2402.detect_distance = 0;
+            LD2402.person = 0;
+            LD2402Serial->read();
+          }
+          LD2402.report_type = 2;
+        } else {
+          // preocess Error line
+          byte_counter = LD2402Serial->readBytesUntil(0x0A, LD2402.buffer, LD2402_BUFFER_SIZE);
+          LD2402.buffer[byte_counter] = 0;
+          AddLog(LOG_LEVEL_INFO, PSTR(D_LD2402_LOG_PREFIX "Erro%s"), LD2402.buffer);
+          LD2402.report_type = 0;
+        }
         byte_counter = 0;
         break;
       }
-      byte_counter = 6;
     }
+    byte_counter = 0;
 
-    avail = LD2402Serial->available();
-    if (avail < (length - got)) {
-      got += LD2402Serial->readBytes(LD2402.buffer + got, avail);
+    while (LD2402Serial->available() < 2) { yield(); }
+    uint32_t length = LD2402Serial->read();
+    LD2402Serial->read();
+    if (length > LD2402_BUFFER_SIZE) {
       break;
     }
-    if (got < length) {
-      got += LD2402Serial->readBytes(LD2402.buffer + got, length - got);
-    }
 
-    avail = LD2402Serial->available();
-    if (avail < 4) {
-      DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Don't have enough for footer."));
+    if (LD2402Serial->readBytes(LD2402.buffer, length) < length) {
+      DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Wasn't able to get whole line!"));
       break;
     }
+
+    uint32_union footer;
+    while (LD2402Serial->available() < 4) { yield(); }
     for (uint32_t i = 4; i; i--) {
       footer.buffer_32<<=8;
       footer.buffer[LD2402.is_big*3] = LD2402Serial->read();
@@ -342,22 +322,19 @@ void Ld2402Input(void) {
       } else {
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Head %*_H"), 4, header.buffer);
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Eng %*_H"), length, LD2402.buffer);
-        DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "byte_counter: %d, avail: %d, got %d, length %d"), byte_counter, avail, got, length);
+        DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "avail: %d, length %d"), avail, length);
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Foot %*_H"), 4, footer.buffer);
       }
     } else {
       if (LD2402_config_footer == footer.buffer_32) {
         Ld2402HandleConfigData();
-        LD2402Serial->setReadChunkMode(0);
       } else {
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Head %*_H"), 4, header.buffer);
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Cmd %*_H"), length, LD2402.buffer);
-        DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "byte_counter: %d, avail: %d, got %d, length %d"), byte_counter, avail, got, length);
+        DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "avail: %d, length %d"), avail, length);
         DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Foot %*_H"), 4, footer.buffer);
       }
     }
-    data_type = 0;
-    byte_counter = 0;
     break;
   }
   // If here then LD2402.byte_counter could still be partial correct for next loop
@@ -367,15 +344,20 @@ void Ld2402SendCommand(uint8_t command, uint32_t val_len = 0);
 void Ld2402SendCommand(uint8_t command, uint32_t val_len) {
   uint8_t buffer[20] = LD2402_config_header_a;
 
-  buffer[4] = val_len + 2;
-  buffer[6] = command;
   if (val_len) {
     memcpy(buffer+8,LD2402.cmnd_param,val_len);
+  } else if (LD2402_CMND_START_CONFIGURATION == command) {
+    const uint8_t start_cmnd[2] = {0x01, 0x00};
+    memcpy(buffer+8, start_cmnd, 2);
+    val_len = 2;
   }
+
+  buffer[4] = val_len + 2;
+  buffer[6] = command;
   memcpy(buffer+8+val_len, LD2402_config_footer_a, sizeof(LD2402_config_footer_a));
 
+  DEBUG_SENSOR_LOG(PSTR(D_LD2402_LOG_PREFIX "Send %*_H"), val_len + 12, buffer);
   LD2402.sent_ack = command;
-  LD2402Serial->setReadChunkMode(1);                            // Enable chunk mode introducing possible Hardware Watchdogs
   LD2402Serial->flush();
   LD2402Serial->write(buffer, val_len + 12);
 }
@@ -421,11 +403,11 @@ void Ld2402WriteThresholds(uint8_t *thresholds, uint32_t cmnd_param) {
   }
   char strbuf[24];
   float param;
-  uint32_t i = 0;
+  uint32_t i = 0, val;
   for (uint32_t j = 0; j < LD2402_NUM_GATES; j++) {
     ArgV(strbuf, j+1);
-    param = CharToFloat(strbuf);
-    uint32_t val = exp10(param > 95.00f ? 95.00f : param);
+    param = CharToFloat(strbuf) / 10.0f;
+    val = exp10(param > 9.5f ? 9.5f : param);
     thresholds[i++] = val & 0x000000FF;
     thresholds[i++] = val >> 8 & 0x000000FF;
     thresholds[i++] = val >> 16 & 0x000000FF;
@@ -450,9 +432,9 @@ void Ld2402ResponseAppendGates(uint8_t *energies) {
 
 void Ld2402ResponseAppendReport() {
   if (3 == LD2402.report_type) {
-    ResponseAppend_P(PSTR("\"AutoUpdate\":\"%1d%%\"}"), LD2402.auto_upd_progress);
+    ResponseAppend_P(PSTR("\"AutoUpdate\":\"%1d%%\""), LD2402.auto_upd_progress);
   } else if (0 == LD2402.report_type) {
-    ResponseAppend_P(PSTR("\"Error\":\"Disconnected\"}"));
+    ResponseAppend_P(PSTR("\"Error\":\"Disconnected\""));
   } else {
     ResponseAppend_P(PSTR("\"" D_JSON_DISTANCE "\":%d"), LD2402.detect_distance);
     if (1 == LD2402.report_type) {
@@ -464,7 +446,7 @@ void Ld2402ResponseAppendReport() {
       Ld2402ResponseAppendGates(LD2402.motion_energy);
       ResponseAppend_P(PSTR("],\"MicroEnergies\":["));
       Ld2402ResponseAppendGates(LD2402.micro_energy);
-      ResponseAppend_P(PSTR("]}"));
+      ResponseAppend_P(PSTR("]"));
     }
   }
 }
@@ -497,6 +479,7 @@ void Ld2402OnDemand(uint32_t ack_rcvd) {
     return;
   
   case LD2402_CMND_SAVE_PARAM>>4:
+    LD2402.step = LD2402_CMND_END_CONFIGURATION;
     return;
 
   case LD2402_CMND_AUTO_THRESHOLD>>4:
@@ -575,6 +558,7 @@ void Ld2402OnDemand(uint32_t ack_rcvd) {
       LD2402.cmnd_param[0] = LD2402_CMND_PARAM_MOTION_START;
       if (2 == LD2402.pwr_interf) {
         LD2402.step = LD2402_CMND_AUTO_INTERFERENCE;
+        return;
       }
       break;
     
@@ -583,15 +567,7 @@ void Ld2402OnDemand(uint32_t ack_rcvd) {
       break;
     
     case LD2402_CMND_PARAM_MICRO_END:
-      if (LD2402.initializing) {
-        // clear LD2402_CMND_READ_PARAM param
-        LD2402.cmnd_param[0] = 0x00;
-        LD2402.cmnd_param[2] = 0x04;
-        LD2402.step = LD2402_CMND_MODE;
-        Ld2402EveryXMSecond();
-      } else {
-        LD2402.step = LD2402_CMND_END_CONFIGURATION;
-      }
+      LD2402.step = LD2402_CMND_END_CONFIGURATION;
       return;
     
     default:
@@ -626,8 +602,7 @@ void Ld2402EveryXMSecond(void) {
       break;
 
     case LD2402_CMND_START_CONFIGURATION:
-      LD2402.cmnd_param[0] = 0x01;
-      Ld2402SendCommand(command, 2);
+      Ld2402SendCommand(command);
       if (LD2402.initializing) {
         LD2402.step = LD2402_CMND_START_CONFIGURATION+CMD_LD2402_BOOT_DELAY;
         return;
@@ -690,6 +665,7 @@ void Ld2402Detect(void) {
     LD2402Serial = new TasmotaSerial(Pin(GPIO_LD2402_RX), Pin(GPIO_LD2402_TX), 2, 0, LD2402_BUFFER_SIZE);
     if (LD2402Serial->begin(115200)) {
       if (LD2402Serial->hardwareSerial()) { ClaimSerial(); }
+      LD2402Serial->setTimeout(200);
 #ifdef ESP32
       AddLog(LOG_LEVEL_DEBUG, PSTR(D_LD2402_LOG_PREFIX "Serial UART%d"), LD2402Serial->getUart());
 #endif
@@ -715,18 +691,19 @@ void Ld2402Detect(void) {
 #define D_CMD_SETCOMMON             "SetCommon"
 #define D_CMD_SETMOTION             "SetMotion"
 #define D_CMD_SETMICRO              "SetMicro"
+#define D_CMD_SAVE                  "Save"
 #define D_CMD_HELP                  "Help"
 #define D_CMD_REREAD                "ReRead"
 #define D_CMD_FOLLOW                "Follow"
 
 const char kLd2402Commands[] PROGMEM = D_LD2402 "_|"  // Prefix
   D_CMD_MODE "|" D_CMD_AUTOUPDATE "|" D_CMD_STATUS "|" D_CMD_SETCOMMON "|"
-  D_CMD_SETMOTION "|" D_CMD_SETMICRO "|" D_CMD_HELP "|" D_CMD_REREAD "|"
+  D_CMD_SETMOTION "|" D_CMD_SETMICRO "|" D_CMD_SAVE "|" D_CMD_HELP "|" D_CMD_REREAD "|"
   D_CMD_FOLLOW;
 
 void (* const Ld2402Command[])(void) PROGMEM = {
   &CmndLd2402Mode, &CmndLd2402AutoUpdate, &CmndLd2402Status, &CmndLd2402Common,
-  &CmndLd2402Motion, &CmndLd2402Micro, &CmndLd2402Help, &CmndLd2402ReRead,
+  &CmndLd2402Motion, &CmndLd2402Micro, &CmndLd2402Save, &CmndLd2402Help, &CmndLd2402ReRead,
   &CmndLd2402Follow };
 
 void CmndLd2402Help(void) {
@@ -737,6 +714,7 @@ void CmndLd2402Help(void) {
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_SETCOMMON", "));
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_SETMOTION", "));
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_SETMICRO", "));
+  ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_SAVE", "));
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_HELP", "));
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_REREAD", "));
   ResponseAppend_P(PSTR(D_LD2402 "_" D_CMD_FOLLOW"\"}"));
@@ -770,17 +748,20 @@ void CmndLd2402Status(void) {
   if (1 == status_type) {
     ResponseAppend_P(PSTR("SNS\":{"));
     Ld2402ResponseAppendReport();
+    ResponseJsonEnd();
   } else if (2 == status_type) {
     ResponseAppend_P(PSTR("FWR\":{\"Version\":\"%s\","),LD2402.version);  
-    ResponseAppend_P(PSTR("\"SerialNumber\":\"%s\"}}"),LD2402.serial_number);  
+    ResponseAppend_P(PSTR("\"SerialNumber\":\"%s\"}"),LD2402.serial_number);  
   } else {
     ResponseAppend_P(PSTR("\":{\"MaximumDistance\":%d,"), LD2402.max_distance);
     ResponseAppend_P(PSTR("\"DisappearenceDelay\":%d,"), LD2402.disp_delay);
     ResponseAppend_P(PSTR("\"MotionThresholds\":["));
     Ld2402ResponseAppendGates(LD2402.motion_threshold);
+    ResponseAppend_P(PSTR("],\"MicroThresholds\":["));
     Ld2402ResponseAppendGates(LD2402.micro_threshold);
-    ResponseAppend_P(PSTR("]}}"));
+    ResponseAppend_P(PSTR("]}"));
   }
+  ResponseJsonEnd();
 }
 
 void CmndLd2402ReRead(void) {
@@ -832,7 +813,7 @@ void CmndLd2402Mode(void) {
   ArgV(Argument,1);
   memset(LD2402.cmnd_param, 0x00, 6);
   LD2402.cmnd_param[2] = atoi(Argument) ? 0x04 : 0x64;
-  Response_P(PSTR(D_COMMAND_PREFIX_JSON"%d}"), D_CMD_FOLLOW, (0x04 == LD2402.cmnd_param[2]));
+  Response_P(PSTR(D_COMMAND_PREFIX_JSON "\"%s\"}"), D_CMD_MODE, (0x04 == LD2402.cmnd_param[2] ? "Engineering" : "Normal"));
   Ld2402ExecConfigCmnd(LD2402_CMND_MODE);
 }
 
@@ -853,7 +834,20 @@ void CmndLd2402AutoUpdate(void) {
     LD2402.cmnd_param[(i-1)*2] = (param < 1.0f) ? 10.0f : (param > 20.0f ? 200.0f : param * 10.0f);
   }
   Ld2402ExecConfigCmnd(LD2402_CMND_AUTO_THRESHOLD);
-  Response_P(PSTR(D_COMMAND_HELP_MSG), D_CMD_REREAD, "Updating ...");
+  Response_P(PSTR(D_COMMAND_HELP_MSG), D_CMD_AUTOUPDATE, "Updating ...");
+}
+
+void CmndLd2402Save(void) {
+  if (LD2402.busy) {
+    Response_P(PSTR(D_BUSY_MSG));
+    return;
+  }
+  if (ArgC()) {
+    Response_P(PSTR(D_COMMAND_HELP_MSG), D_CMD_SAVE, "No Args: Saves configuration parameters in case of power failure (v3.3.2 and above)");
+    return;
+  }
+  Ld2402ExecConfigCmnd(LD2402_CMND_SAVE_PARAM);
+  Response_P(PSTR(D_COMMAND_HELP_MSG), D_CMD_SAVE, "Saving ...");
 }
 
 void CmndLd2402Motion(void) {
@@ -894,6 +888,7 @@ void Ld2402Web(void) {
 void Ld2402Show(void) {
   ResponseAppend_P(PSTR(",\"" D_LD2402 "\":{"));
   Ld2402ResponseAppendReport();
+  ResponseJsonEnd();
 }
 
 /*********************************************************************************************\
